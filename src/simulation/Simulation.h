@@ -198,7 +198,15 @@ public:
 	void photoelectric_effect(int nx, int ny);
 	int do_move(int i, int x, int y, float nxf, float nyf);
 	bool move(int i, int x, int y, float nxf, float nyf);
-	int try_move(int i, int x, int y, int nx, int ny);
+#if defined(__GNUC__)
+	__attribute__((always_inline)) inline
+#endif
+	int try_move(int i, int x, int y, int nx, int ny)
+	{
+		return TryMove(i, x, y, nx, ny);
+	}
+
+	int TryMove(int i, int x, int y, int nx, int ny);
 #if defined(__GNUC__)
 	// Called several times per moving particle per frame from the movement
 	// paths; the out-of-line call overhead and missed cross-function

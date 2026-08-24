@@ -1206,7 +1206,7 @@ int Simulation::EvalMove(int pt, int nx, int ny, unsigned *rr) const
 	return result;
 }
 
-int Simulation::try_move(int i, int x, int y, int nx, int ny)
+int Simulation::TryMove(int i, int x, int y, int nx, int ny)
 {
 	unsigned r = 0, e;
 
