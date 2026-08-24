@@ -33,7 +33,7 @@ namespace
 			float pGravX = 0;
 			float pGravY = 0;
 		};
-		void MovementPhase(int i, Neighbourhood neighbourhood);
+		void MovementPhase(int i, const Neighbourhood &neighbourhood);
 		Neighbourhood GetNeighbourhood(int i) const;
 		bool TransitionPhase(int i, const Neighbourhood &neighbourhood);
 
@@ -2880,7 +2880,7 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 	return transitionOccurred;
 }
 
-void SimulationImpl::MovementPhase(int i, Neighbourhood neighbourhood)
+void SimulationImpl::MovementPhase(int i, const Neighbourhood &neighbourhood)
 {
 	auto &sd = SimulationData::CRef();
 	auto &elements = sd.elements;
