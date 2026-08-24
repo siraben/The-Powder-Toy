@@ -222,7 +222,44 @@ std::unique_ptr<SnapshotDelta> SnapshotDelta::FromSnapshots(const Snapshot &oldS
 	FillSingleDiff(oldSnap.Authors        , newSnap.Authors        , delta.Authors        );
 	FillSingleDiff(oldSnap.FrameCount     , newSnap.FrameCount     , delta.FrameCount     );
 	FillSingleDiff(oldSnap.RngState       , newSnap.RngState       , delta.RngState       );
-	FillHunkVectorPtr(reinterpret_cast<const uint32_t *>(oldSnap.PortalParticles.data()), reinterpret_cast<const uint32_t *>(newSnap.PortalParticles.data()), delta.PortalParticles, newSnap.PortalParticles.size() * ParticleUint32Count);
+	// * Portal particles: an empty side means the buffers were never allocated,
+	//   which is equivalent to an all-zero array; diff against implicit zeros
+	//   instead of dereferencing a null data().
+	delta.portalParticlesSizeOld = oldSnap.PortalParticles.size();
+	delta.portalParticlesSizeNew = newSnap.PortalParticles.size();
+	if (!oldSnap.PortalParticles.empty() && !newSnap.PortalParticles.empty())
+	{
+		FillHunkVectorPtr(reinterpret_cast<const uint32_t *>(oldSnap.PortalParticles.data()), reinterpret_cast<const uint32_t *>(newSnap.PortalParticles.data()), delta.PortalParticles, newSnap.PortalParticles.size() * ParticleUint32Count);
+	}
+	else
+	{
+		const auto &full = oldSnap.PortalParticles.empty() ? newSnap.PortalParticles : oldSnap.PortalParticles;
+		bool oldIsZero = oldSnap.PortalParticles.empty();
+		auto *items = reinterpret_cast<const uint32_t *>(full.data());
+		auto words = full.size() * ParticleUint32Count;
+		auto i = 0U;
+		while (i < words)
+		{
+			if (!items[i])
+			{
+				i += 1U;
+				continue;
+			}
+			auto offset = i;
+			while (i < words && items[i])
+			{
+				i += 1U;
+			}
+			auto &hunk = delta.PortalParticles.emplace_back();
+			hunk.offset = int(offset);
+			hunk.diffs.resize(i - offset);
+			for (auto j = 0U; j < i - offset; ++j)
+			{
+				hunk.diffs[j].oldItem = oldIsZero ? 0U : items[offset + j];
+				hunk.diffs[j].newItem = oldIsZero ? items[offset + j] : 0U;
+			}
+		}
+	}
 	FillHunkVectorPtr(reinterpret_cast<const uint32_t *>(oldSnap.stickmen.data())       , reinterpret_cast<const uint32_t *>(newSnap.stickmen.data()       ), delta.stickmen       , newSnap.stickmen       .size() * playerstUint32Count);
 
 	// * Slightly more interesting; this will only diff the common parts, the rest is copied separately.
@@ -259,7 +296,18 @@ std::unique_ptr<Snapshot> SnapshotDelta::Forward(const Snapshot &oldSnap)
 	ApplySingleDiff<false>(Authors        , newSnap.Authors        );
 	ApplySingleDiff<false>(FrameCount     , newSnap.FrameCount     );
 	ApplySingleDiff<false>(RngState       , newSnap.RngState       );
-	ApplyHunkVectorPtr<false>(PortalParticles, reinterpret_cast<uint32_t *>(newSnap.PortalParticles.data()));
+	// * An empty portal side stands for an all-zero array, so growing needs a
+	//   resize before the hunks land, and collapsing to zero must leave the
+	//   vector empty rather than pointing hunks at a null data().
+	if (portalParticlesSizeNew)
+	{
+		newSnap.PortalParticles.resize(portalParticlesSizeNew);
+		ApplyHunkVectorPtr<false>(PortalParticles, reinterpret_cast<uint32_t *>(newSnap.PortalParticles.data()));
+	}
+	else
+	{
+		newSnap.PortalParticles.clear();
+	}
 	ApplyHunkVectorPtr<false>(stickmen       , reinterpret_cast<uint32_t *>(newSnap.stickmen.data()       ));
 
 	// * Slightly more interesting; apply the common hunk vector, copy the extra portion separaterly.
@@ -294,7 +342,15 @@ std::unique_ptr<Snapshot> SnapshotDelta::Restore(const Snapshot &newSnap)
 	ApplySingleDiff<true>(Authors        , oldSnap.Authors        );
 	ApplySingleDiff<true>(FrameCount     , oldSnap.FrameCount     );
 	ApplySingleDiff<true>(RngState       , oldSnap.RngState       );
-	ApplyHunkVectorPtr<true>(PortalParticles, reinterpret_cast<uint32_t *>(oldSnap.PortalParticles.data()));
+	if (portalParticlesSizeOld)
+	{
+		oldSnap.PortalParticles.resize(portalParticlesSizeOld);
+		ApplyHunkVectorPtr<true>(PortalParticles, reinterpret_cast<uint32_t *>(oldSnap.PortalParticles.data()));
+	}
+	else
+	{
+		oldSnap.PortalParticles.clear();
+	}
 	ApplyHunkVectorPtr<true>(stickmen       , reinterpret_cast<uint32_t *>(oldSnap.stickmen.data()       ));
 
 	// * Slightly more interesting; apply the common hunk vector, copy the extra portion separaterly.

@@ -64,6 +64,11 @@ struct SnapshotDelta
 
 
 	HunkVector<uint32_t> PortalParticles;
+	// Portal particle counts of the snapshots this delta was built from.  An
+	// empty side means the portal buffers were never allocated and is
+	// equivalent to an all-zero array (see Editing.cpp CreateSnapshot/Restore).
+	size_t portalParticlesSizeOld = 0;
+	size_t portalParticlesSizeNew = 0;
 	HunkVector<int> WirelessData;
 	HunkVector<uint32_t> stickmen;
 	SingleDiff<std::vector<sign>> signs;
