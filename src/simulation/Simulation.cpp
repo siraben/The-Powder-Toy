@@ -1529,6 +1529,9 @@ int Simulation::try_move(int i, int x, int y, int nx, int ny)
 }
 
 // try to move particle, and if successful update pmap and parts[i].x,y
+#if defined(__GNUC__)
+__attribute__((always_inline))
+#endif
 int Simulation::do_move(int i, int x, int y, float nxf, float nyf)
 {
 	int nx = (int)(nxf+0.5f), ny = (int)(nyf+0.5f), result;
@@ -1562,6 +1565,9 @@ int Simulation::do_move(int i, int x, int y, float nxf, float nyf)
 	return result;
 }
 
+#if defined(__GNUC__)
+__attribute__((always_inline))
+#endif
 bool Simulation::move(int i, int x, int y, float nxf, float nyf)
 {
 	auto &sd = SimulationData::CRef();
