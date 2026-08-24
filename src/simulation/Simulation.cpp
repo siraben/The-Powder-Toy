@@ -1038,7 +1038,7 @@ void Simulation::clear_sim(void)
 	memset(fvy, 0, sizeof(fvy));
 	memset(photons, 0, sizeof(photons));
 	memset(wireless, 0, sizeof(wireless));
-	memset(gol, 0, sizeof(gol));
+	gol.reset(); // reallocated zeroed by SimulateGoL when GoL runs again
 	memset(portalp, 0, sizeof(portalp));
 	memset(fighters, 0, sizeof(fighters));
 	memset(&player, 0, sizeof(player));
@@ -3443,6 +3443,12 @@ void Parts::Flatten()
 void Simulation::SimulateGoL()
 {
 	auto &builtinGol = SimulationData::builtinGol;
+	// Lazily take over the role of the old always-allocated gol array: the
+	// zero-initialised allocation matches what clear_sim used to guarantee.
+	if (!gol)
+	{
+		gol.reset(new unsigned int[YRES][XRES][5]());
+	}
 	CGOL = 0;
 	for (int i = 0; i < parts.active; ++i)
 	{

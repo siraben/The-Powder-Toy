@@ -140,7 +140,10 @@ public:
 
 	int CGOL = 0;
 	int GSPEED = 1;
-	unsigned int gol[YRES][XRES][5];
+	// GoL neighbour lists (see SimulateGoL). Allocated zeroed on first use and
+	// released by clear_sim, mirroring the old always-zeroed array, so sessions
+	// that never simulate GoL never pay the ~4.7MB of RSS.
+	std::unique_ptr<unsigned int[][XRES][5]> gol;
 
 	float fvx[YCELLS][XCELLS];
 	float fvy[YCELLS][XCELLS];
