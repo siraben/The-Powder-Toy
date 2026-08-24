@@ -577,9 +577,9 @@ static void pushParticle(Simulation * sim, int i, int count, int original)
 				else if (portaltmp < 0)
 					portaltmp = 0;
 				for (int nnx = 0; nnx < 80; nnx++)
-					if (!sim->portalp[portaltmp][count][nnx].type)
+					if (!sim->GetPortalp()[portaltmp][count][nnx].type)
 					{
-						Element_PIPE_transfer_pipe_to_part(sim, sim->parts+i, &(sim->portalp[portaltmp][count][nnx]), false);
+						Element_PIPE_transfer_pipe_to_part(sim, sim->parts+i, &(sim->GetPortalp()[portaltmp][count][nnx]), false);
 						count++;
 						break;
 					}
@@ -606,9 +606,9 @@ static void pushParticle(Simulation * sim, int i, int count, int original)
 			else if (portaltmp < 0)
 				portaltmp = 0;
 			for (int nnx = 0; nnx < 80; nnx++)
-				if (!sim->portalp[portaltmp][count][nnx].type)
+				if (!sim->GetPortalp()[portaltmp][count][nnx].type)
 				{
-					Element_PIPE_transfer_pipe_to_part(sim, sim->parts+i, &(sim->portalp[portaltmp][count][nnx]), false);
+					Element_PIPE_transfer_pipe_to_part(sim, sim->parts+i, &(sim->GetPortalp()[portaltmp][count][nnx]), false);
 					count++;
 					break;
 				}

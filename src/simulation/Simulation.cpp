@@ -1039,7 +1039,7 @@ void Simulation::clear_sim(void)
 	memset(photons, 0, sizeof(photons));
 	memset(wireless, 0, sizeof(wireless));
 	gol.reset(); // reallocated zeroed by SimulateGoL when GoL runs again
-	memset(portalp, 0, sizeof(portalp));
+	portalp.reset(); // reallocated zeroed by GetPortalp when portals are used again
 	memset(fighters, 0, sizeof(fighters));
 	memset(&player, 0, sizeof(player));
 	memset(&player2, 0, sizeof(player2));
@@ -1245,9 +1245,9 @@ int Simulation::try_move(int i, int x, int y, int nx, int ny)
 			if (parts[ID(r)].tmp>=CHANNELS) parts[ID(r)].tmp = CHANNELS-1;
 			else if (parts[ID(r)].tmp<0) parts[ID(r)].tmp = 0;
 			for ( nnx=0; nnx<80; nnx++)
-				if (!portalp[parts[ID(r)].tmp][count][nnx].type)
+				if (!GetPortalp()[parts[ID(r)].tmp][count][nnx].type)
 				{
-					portalp[parts[ID(r)].tmp][count][nnx] = parts[i];
+					GetPortalp()[parts[ID(r)].tmp][count][nnx] = parts[i];
 					kill_part(i);
 					break;
 				}

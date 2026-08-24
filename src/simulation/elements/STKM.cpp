@@ -685,13 +685,13 @@ void Element_STKM_interact(Simulation *sim, playerst *playerp, int i, int x, int
 			if (sim->parts[ID(r)].tmp>=CHANNELS) sim->parts[ID(r)].tmp = CHANNELS-1;
 			else if (sim->parts[ID(r)].tmp<0) sim->parts[ID(r)].tmp = 0;
 			for (nnx=0; nnx<80; nnx++)
-				if (!sim->portalp[sim->parts[ID(r)].tmp][count][nnx].type)
+				if (!sim->GetPortalp()[sim->parts[ID(r)].tmp][count][nnx].type)
 				{
-					sim->portalp[sim->parts[ID(r)].tmp][count][nnx] = sim->parts[i];
+					sim->GetPortalp()[sim->parts[ID(r)].tmp][count][nnx] = sim->parts[i];
 					sim->kill_part(i);
 					//stop new STKM/fighters being created to replace the ones in the portal:
 					playerp->spwn = 1;
-					if (sim->portalp[sim->parts[ID(r)].tmp][count][nnx].type==PT_FIGH)
+					if (sim->GetPortalp()[sim->parts[ID(r)].tmp][count][nnx].type==PT_FIGH)
 						sim->fighcount++;
 					break;
 				}

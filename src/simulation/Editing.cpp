@@ -25,7 +25,12 @@ std::unique_ptr<Snapshot> Simulation::CreateSnapshot() const
 	snap->FanVelocityX   .insert   (snap->FanVelocityX   .begin(), &fvx [0][0]      , &fvx [0][0] + NCELL);
 	snap->FanVelocityY   .insert   (snap->FanVelocityY   .begin(), &fvy [0][0]      , &fvy [0][0] + NCELL);
 	snap->Particles      .insert   (snap->Particles      .begin(), &parts  [0]      , &parts  [0] + parts.active);
-	snap->PortalParticles.insert   (snap->PortalParticles.begin(), &portalp[0][0][0], &portalp[0][0][0] + CHANNELS * 8 * 80);
+	// An empty PortalParticles means the portal buffers were never allocated;
+	// Restore() understands that as "all zeros".
+	if (portalp)
+	{
+		snap->PortalParticles.insert   (snap->PortalParticles.begin(), &portalp->channel[0][0][0], &portalp->channel[0][0][0] + CHANNELS * 8 * 80);
+	}
 	snap->WirelessData   .insert   (snap->WirelessData   .begin(), &wireless[0][0]  , &wireless[0][0] + CHANNELS * 2);
 	snap->stickmen       .insert   (snap->stickmen       .begin(), &fighters[0]     , &fighters[0] + MAX_FIGHTERS);
 	snap->stickmen       .push_back(player2);
@@ -60,7 +65,16 @@ void Simulation::Restore(const Snapshot &snap)
 	std::copy(snap.FanVelocityX   .begin(), snap.FanVelocityX   .end(), &fvx[0][0]       );
 	std::copy(snap.FanVelocityY   .begin(), snap.FanVelocityY   .end(), &fvy[0][0]       );
 	std::copy(snap.Particles      .begin(), snap.Particles      .end(), &parts[0]        );
-	std::copy(snap.PortalParticles.begin(), snap.PortalParticles.end(), &portalp[0][0][0]);
+	if (!snap.PortalParticles.empty())
+	{
+		std::copy(snap.PortalParticles.begin(), snap.PortalParticles.end(), &GetPortalp()[0][0][0]);
+	}
+	else if (portalp)
+	{
+		// The snapshot predates any portal buffer allocation; it recorded the
+		// pristine all-zero state the old always-allocated array had.
+		memset(&portalp->channel[0][0][0], 0, sizeof(Particle) * CHANNELS * 8 * 80);
+	}
 	std::copy(snap.WirelessData   .begin(), snap.WirelessData   .end(), &wireless[0][0]  );
 	std::copy(snap.stickmen       .begin(), snap.stickmen.end() - 2   , &fighters[0]     );
 	player  = snap.stickmen[snap.stickmen.size() - 1];

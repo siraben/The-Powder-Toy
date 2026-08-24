@@ -23,6 +23,12 @@
 
 constexpr int CHANNELS = int(MAX_TEMP - 73) / 100 + 2;
 
+// Portal transport buffers; see RenderableSimulation::portalp / GetPortalp.
+struct SimulationPortalp
+{
+	Particle channel[CHANNELS][8][80];
+};
+
 class FrameTime;
 class Snapshot;
 class Brush;
@@ -135,7 +141,10 @@ public:
 	int lightningRecreate = 0;
 	bool gravWallChanged = false;
 
-	Particle portalp[CHANNELS][8][80];
+	// Portal transport buffers (see GetPortalp). Allocated zeroed on first use
+	// and released by clear_sim, mirroring the old always-zeroed array, so
+	// sessions without portals/pipes/WiFi never pay the ~3.6MB of RSS.
+	std::unique_ptr<struct SimulationPortalp> portalp;
 	int wireless[CHANNELS][2];
 
 	int CGOL = 0;
@@ -256,6 +265,19 @@ public:
 	int FloodParts(int x, int y, int c, int cm, int flags);
 
 	void GetGravityField(int x, int y, float particleGrav, float newtonGrav, float & pGravX, float & pGravY) const;
+
+	// Portal transport buffers, allocated zeroed on first use so that
+	// simulations that never use portals/PIPE/WiFi/stickman teleporting never
+	// allocate them.  The returned array behaves like the old always-present
+	// portalp[CHANNELS][8][80].
+	Particle (*GetPortalp())[8][80]
+	{
+		if (!portalp)
+		{
+			portalp.reset(new SimulationPortalp{});
+		}
+		return portalp->channel;
+	}
 
 	int get_wavelength_bin(int *wm);
 	struct GetNormalResult
