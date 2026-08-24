@@ -19,6 +19,7 @@ public:
 	float ovy[YCELLS][XCELLS];
 	float opv[YCELLS][XCELLS];
 	float ohv[YCELLS][XCELLS]; // Ambient Heat
+	float ocurl[YCELLS][XCELLS]; // Vorticity confinement scratch, valid only within update_air
 	unsigned char bmap_blockair[YCELLS][XCELLS];
 	unsigned char bmap_blockairh[YCELLS][XCELLS];
 	float kernel[9];

@@ -345,6 +345,21 @@ void Air::update_air(void)
 			}
 		}
 
+		// Vorticity confinement below samples the curl of the 4 neighbours and
+		// the cell itself; precompute it once per frame instead of recomputing
+		// it 5 times per cell.  Nothing in between writes vx/vy/bmap_blockair
+		// (the loop only fills ovx/ovy/opv), so this is bit-identical.
+		if (vorticityCoeff > 0.0f)
+		{
+			for (auto y=0; y<YCELLS; y++)
+			{
+				for (auto x=0; x<XCELLS; x++)
+				{
+					ocurl[y][x] = vorticityBmap(sim, y, x);
+				}
+			}
+		}
+
 		for (auto y=0; y<YCELLS; y++) //update velocity and pressure
 		{
 			for (auto x=0; x<XCELLS; x++)
@@ -441,10 +456,10 @@ void Air::update_air(void)
 				//Vorticity confinement
 				if (vorticityCoeff > 0.0f && x > 1 && x < XCELLS-2 && y > 1 && y < YCELLS-2)
 				{
-					auto dwx = (std::abs(vorticityBmap(sim, y, x+1)) - std::abs(vorticityBmap(sim, y, x-1)))*0.5f;
-					auto dwy = (std::abs(vorticityBmap(sim, y+1, x)) - std::abs(vorticityBmap(sim, y-1, x)))*0.5f;
+					auto dwx = (std::abs(ocurl[y][x+1]) - std::abs(ocurl[y][x-1]))*0.5f;
+					auto dwy = (std::abs(ocurl[y+1][x]) - std::abs(ocurl[y-1][x]))*0.5f;
 					auto norm = std::hypot(dwx, dwy);
-					auto w = vorticityBmap(sim, y, x);
+					auto w = ocurl[y][x];
 
 					dx += vorticityCoeff/5.0f * dwy / (norm + 0.001f) * w;
 					dy += vorticityCoeff/5.0f * (-dwx) / (norm + 0.001f) * w;
