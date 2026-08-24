@@ -1,5 +1,12 @@
 #pragma once
 #include "SimulationConfig.h"
+#include <memory>
+
+// Ambient heat scratch plane; see Air::ohv.
+struct AirOhv
+{
+	float v[YCELLS][XCELLS];
+};
 
 class Simulation;
 struct RenderableSimulation;
@@ -15,10 +22,12 @@ public:
 	float edgeVelocityY;
 	float vorticityCoeff;
 	int convectionMode;
+	// Ambient heat scratch; allocated on first use (see update_airh) so
+	// sessions without ambient heat never pay for it.
+	std::unique_ptr<AirOhv> ohv;
 	float ovx[YCELLS][XCELLS];
 	float ovy[YCELLS][XCELLS];
 	float opv[YCELLS][XCELLS];
-	float ohv[YCELLS][XCELLS]; // Ambient Heat
 	float ocurl[YCELLS][XCELLS]; // Vorticity confinement scratch, valid only within update_air
 	float ovortx[YCELLS][XCELLS]; // Vorticity confinement contributions, valid only within update_air
 	float ovorty[YCELLS][XCELLS];

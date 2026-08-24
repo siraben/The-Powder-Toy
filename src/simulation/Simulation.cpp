@@ -2814,8 +2814,13 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 
 	{
 		auto s = 1;
-		auto gravtot = std::abs(gravOut.forceX[Vec2{ x, y } / CELL]) +
-		               std::abs(gravOut.forceY[Vec2{ x, y } / CELL]);
+		// Only the pressure-transition branches below consume gravtot, and all
+		// of them are guarded by a transition being configured; compute it
+		// lazily so the common no-transition element pays nothing.
+		auto gravtotCalc = [&]() {
+			return std::abs(gravOut.forceX[Vec2{ x, y } / CELL]) +
+			       std::abs(gravOut.forceY[Vec2{ x, y } / CELL]);
+		};
 		if (elements[t].HighPressureTransition != NT && pv[y/CELL][x/CELL]>elements[t].HighPressure) {
 			// particle type change due to high pressure
 			if (elements[t].HighPressureTransition != ST)
@@ -2828,19 +2833,19 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 				else s = 0;
 			}
 			else s = 0;
-		} else if (elements[t].LowPressureTransition != NT && pv[y/CELL][x/CELL]<elements[t].LowPressure && gravtot<=(elements[t].LowPressure/4.0f)) {
+		} else if (elements[t].LowPressureTransition != NT && pv[y/CELL][x/CELL]<elements[t].LowPressure && gravtotCalc()<=(elements[t].LowPressure/4.0f)) {
 			// particle type change due to low pressure
 			if (elements[t].LowPressureTransition != ST)
 				t = elements[t].LowPressureTransition;
 			else s = 0;
-		} else if (elements[t].HighPressureTransition != NT && gravtot>(elements[t].HighPressure/4.0f)) {
+		} else if (elements[t].HighPressureTransition != NT && gravtotCalc()>(elements[t].HighPressure/4.0f)) {
 			// particle type change due to high gravity
 			if (elements[t].HighPressureTransition != ST)
 				t = elements[t].HighPressureTransition;
 			else if (t==PT_BMTL) {
-				if (gravtot>0.625f)
+				if (gravtotCalc()>0.625f)
 					t = PT_BRMT;
-				else if (gravtot>0.25f && parts[i].tmp==1)
+				else if (gravtotCalc()>0.25f && parts[i].tmp==1)
 					t = PT_BRMT;
 				else s = 0;
 			}

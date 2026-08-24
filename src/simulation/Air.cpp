@@ -81,6 +81,14 @@ void Air::update_airh(void)
 	auto &vx = sim.vx;
 	auto &vy = sim.vy;
 	auto &hv = sim.hv;
+	// Scratch for this frame's ambient heat field; every cell is written
+	// before the memcpy below reads it, so zero-init matches the old
+	// always-filled buffer.
+	if (!ohv)
+	{
+		ohv = std::make_unique<AirOhv>();
+	}
+	auto &ohvv = *ohv;
 	for (auto i=0; i<YCELLS; i++) //sets air temp on the edges every frame
 	{
 		hv[i][0] = ambientAirTemp;
@@ -186,7 +194,7 @@ void Air::update_airh(void)
 			if (dh > MAX_TEMP) dh = MAX_TEMP;
 			if (dh < MIN_TEMP) dh = MIN_TEMP;
 
-			ohv[y][x] = dh;
+			ohvv.v[y][x] = dh;
 
 			// Air convection.
 			float dvx, dvy;
@@ -249,7 +257,7 @@ void Air::update_airh(void)
 			vy[y][x] = dvy;
 		}
 	}
-	memcpy(hv, ohv, sizeof(hv));
+	memcpy(&hv[0][0], &ohvv.v[0][0], sizeof(float) * NCELL);
 }
 
 static float Mix(float a, float b, float f)
@@ -623,7 +631,6 @@ Air::Air(Simulation & simulation):
 	std::fill(&sim.vy[0][0], &sim.vy[0][0] + NCELL, 0.0f);
 	std::fill(&ovy   [0][0], &ovy   [0][0] + NCELL, 0.0f);
 	std::fill(&sim.hv[0][0], &sim.hv[0][0] + NCELL, 0.0f);
-	std::fill(&ohv   [0][0], &ohv   [0][0] + NCELL, 0.0f);
 	std::fill(&sim.pv[0][0], &sim.pv[0][0] + NCELL, 0.0f);
 	std::fill(&opv   [0][0], &opv   [0][0] + NCELL, 0.0f);
 }
