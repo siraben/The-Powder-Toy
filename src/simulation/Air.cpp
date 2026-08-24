@@ -257,6 +257,51 @@ static float Mix(float a, float b, float f)
 	return a + (b - a) * f;
 }
 
+// Weighted 3x3 sample of vx/vy/pv.  Cells blocked by walls (or, unless
+// Interior, out-of-bounds cells) contribute the centre cell's value with their
+// kernel weight instead.  Accumulation order matches the historical nested
+// loop exactly, so results are bit-identical.
+template<bool Interior>
+static void SampleKernel(const Air &air, int y, int x, float &dx, float &dy, float &dp)
+{
+	auto &vx = air.sim.vx;
+	auto &vy = air.sim.vy;
+	auto &pv = air.sim.pv;
+	auto &bmap_blockair = air.bmap_blockair;
+
+	dx = 0.0f;
+	dy = 0.0f;
+	dp = 0.0f;
+	for (auto j=-1; j<2; j++)
+	{
+		for (auto i=-1; i<2; i++)
+		{
+			auto f = air.kernel[i+1+(j+1)*3];
+			bool centre;
+			if (Interior) // y+j and x+i are known to stay in bounds
+			{
+				centre = bmap_blockair[y+j][x+i];
+			}
+			else
+			{
+				centre = y+j <= 0 || y+j >= YCELLS-1 || x+i <= 0 || x+i >= XCELLS-1 || bmap_blockair[y+j][x+i];
+			}
+			if (!centre)
+			{
+				dx += vx[y+j][x+i]*f;
+				dy += vy[y+j][x+i]*f;
+				dp += pv[y+j][x+i]*f;
+			}
+			else
+			{
+				dx += vx[y][x]*f;
+				dy += vy[y][x]*f;
+				dp += pv[y][x]*f;
+			}
+		}
+	}
+}
+
 void Air::update_air(void)
 {
 	auto &vx = sim.vx;
@@ -346,9 +391,12 @@ void Air::update_air(void)
 		}
 
 		// Vorticity confinement below samples the curl of the 4 neighbours and
-		// the cell itself; precompute it once per frame instead of recomputing
-		// it 5 times per cell.  Nothing in between writes vx/vy/bmap_blockair
-		// (the loop only fills ovx/ovy/opv), so this is bit-identical.
+		// the cell itself, then normalises with a hypot; precompute the whole
+		// per-cell contribution once per frame instead of recomputing the curl
+		// 5 times per cell and calling hypotf per cell.  Nothing in between
+		// writes vx/vy/bmap_blockair (the loop only fills ovx/ovy/opv), and the
+		// stored contributions are added at the exact point the inline math used
+		// to run, so this is bit-identical.
 		if (vorticityCoeff > 0.0f)
 		{
 			for (auto y=0; y<YCELLS; y++)
@@ -358,36 +406,32 @@ void Air::update_air(void)
 					ocurl[y][x] = vorticityBmap(sim, y, x);
 				}
 			}
+			for (auto y=1; y<YCELLS-1; y++)
+			{
+				for (auto x=1; x<XCELLS-1; x++)
+				{
+					auto dwx = (std::abs(ocurl[y][x+1]) - std::abs(ocurl[y][x-1]))*0.5f;
+					auto dwy = (std::abs(ocurl[y+1][x]) - std::abs(ocurl[y-1][x]))*0.5f;
+					auto norm = std::hypot(dwx, dwy);
+					auto w = ocurl[y][x];
+					ovortx[y][x] = vorticityCoeff/5.0f * dwy / (norm + 0.001f) * w;
+					ovorty[y][x] = vorticityCoeff/5.0f * (-dwx) / (norm + 0.001f) * w;
+				}
+			}
 		}
 
 		for (auto y=0; y<YCELLS; y++) //update velocity and pressure
 		{
 			for (auto x=0; x<XCELLS; x++)
 			{
-				auto dx = 0.0f;
-				auto dy = 0.0f;
-				auto dp = 0.0f;
-				for (auto j=-1; j<2; j++)
+				float dx, dy, dp;
+				if (y > 0 && y < YCELLS-1 && x > 0 && x < XCELLS-1)
 				{
-					for (auto i=-1; i<2; i++)
-					{
-						if (y+j>0 && y+j<YCELLS-1 &&
-						        x+i>0 && x+i<XCELLS-1 &&
-						        !bmap_blockair[y+j][x+i])
-						{
-							auto f = kernel[i+1+(j+1)*3];
-							dx += vx[y+j][x+i]*f;
-							dy += vy[y+j][x+i]*f;
-							dp += pv[y+j][x+i]*f;
-						}
-						else
-						{
-							auto f = kernel[i+1+(j+1)*3];
-							dx += vx[y][x]*f;
-							dy += vy[y][x]*f;
-							dp += pv[y][x]*f;
-						}
-					}
+					SampleKernel<true>(*this, y, x, dx, dy, dp);
+				}
+				else
+				{
+					SampleKernel<false>(*this, y, x, dx, dy, dp);
 				}
 
 				auto tx = x - dx*advDistanceMult;
@@ -456,13 +500,8 @@ void Air::update_air(void)
 				//Vorticity confinement
 				if (vorticityCoeff > 0.0f && x > 1 && x < XCELLS-2 && y > 1 && y < YCELLS-2)
 				{
-					auto dwx = (std::abs(ocurl[y][x+1]) - std::abs(ocurl[y][x-1]))*0.5f;
-					auto dwy = (std::abs(ocurl[y+1][x]) - std::abs(ocurl[y-1][x]))*0.5f;
-					auto norm = std::hypot(dwx, dwy);
-					auto w = ocurl[y][x];
-
-					dx += vorticityCoeff/5.0f * dwy / (norm + 0.001f) * w;
-					dy += vorticityCoeff/5.0f * (-dwx) / (norm + 0.001f) * w;
+					dx += ovortx[y][x];
+					dy += ovorty[y][x];
 				}
 
 				if (bmap[y][x] == WL_FAN)
