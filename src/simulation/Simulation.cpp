@@ -2513,6 +2513,7 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 			auto hc_total = 0.0f; // Total heat capacity of elements involved
 			auto c_heat = 0.0f; // Total heat distributed between elements
 			int surround_hconduct[8]; // IDs of elements which exchange heat
+			bool anyConductingNeighbour = false;
 
 			for (auto j=0; j<8; j++)
 			{
@@ -2543,23 +2544,37 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 					continue;
 
 				surround_hconduct[j] = rid;
+				anyConductingNeighbour = true;
 				auto hc = HeatCapacityFast(elements, parts[rid]);
 				c_heat += parts[rid].temp*hc;
 				hc_total += hc;
 			}
 
-			// Add the current particle
-			auto hc = HeatCapacityFast(elements, parts[i]);
-			c_heat += parts[i].temp*hc;
-			hc_total += hc;
-
-			// Equilibrium temperature
-			float pt = restrict_flt(c_heat / hc_total, MIN_TEMP, MAX_TEMP);
-
-			parts[i].temp = pt;
-			for (auto j=0; j<8; j++)
+			float pt;
+			if (!anyConductingNeighbour)
 			{
-				parts[surround_hconduct[j]].temp = pt;
+				// Nothing to exchange heat with.  The old path still recomputed
+				// (t*h)/h -- which can differ from t by an ULP -- and rewrote
+				// it into the particle every frame.
+				pt = parts[i].temp;
+			}
+			else
+			{
+				// Add the current particle
+				auto hc = HeatCapacityFast(elements, parts[i]);
+				c_heat += parts[i].temp*hc;
+				hc_total += hc;
+
+				// Equilibrium temperature
+				pt = restrict_flt(c_heat / hc_total, MIN_TEMP, MAX_TEMP);
+				parts[i].temp = pt;
+				for (auto j=0; j<8; j++)
+				{
+					// Slots with no conducting neighbour default to i, whose
+					// temperature was just assigned above.
+					if (surround_hconduct[j] != i)
+						parts[surround_hconduct[j]].temp = pt;
+				}
 			}
 
 			auto ctemph = pt;
