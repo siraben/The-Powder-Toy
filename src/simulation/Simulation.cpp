@@ -2117,6 +2117,9 @@ void Simulation::create_cherenkov_photon(int pp)//photons from NEUT going throug
 	parts[i].vy *= r;
 }
 
+#if defined(__GNUC__)
+__attribute__((always_inline))
+#endif
 void Simulation::GetGravityField(int x, int y, float particleGrav, float newtonGrav, float & pGravX, float & pGravY) const
 {
 	switch (gravityMode)
@@ -2460,10 +2463,21 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 
 		if ((elements[t].Properties&TYPE_LIQUID) && (t!=PT_GEL || gel_scale > (1 + rng.between(0, 254))))
 		{
-			float convGravX, convGravY;
-			GetGravityField(x, y, -2.0f, -2.0f, convGravX, convGravY);
-			auto offsetX = std::clamp(int(std::round(convGravX + x)), x-1, x+1);
-			auto offsetY = std::clamp(int(std::round(convGravY + y)), y-1, y+1);
+			int offsetX, offsetY;
+			if (gravityMode == GRAV_VERTICAL)
+			{
+				// GetGravityField returns exactly (0, particleGrav) here, so
+				// the rounded/clamped offsets collapse to these constants.
+				offsetX = x;
+				offsetY = y - 1;
+			}
+			else
+			{
+				float convGravX, convGravY;
+				GetGravityField(x, y, -2.0f, -2.0f, convGravX, convGravY);
+				offsetX = std::clamp(int(std::round(convGravX + x)), x-1, x+1);
+				offsetY = std::clamp(int(std::round(convGravY + y)), y-1, y+1);
+			}
 			// Some heat convection for liquids
 			if (offsetX != x || offsetY != y)
 			{
