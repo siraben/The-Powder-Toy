@@ -2503,20 +2503,28 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 					continue;
 
 				auto rt = TYP(r);
+				auto rid = ID(r);
 
-				// Check if we can conduct heat
-				if (!rt || HeatInsulatorFast(elements, parts[ID(r)])
+				// Check if we can conduct heat.  The type-only tests come first
+				// so the common empty/insulator neighbour never pays for the
+				// particle load; the conditions are pure so the reorder is
+				// behaviour-identical.
+				if (!rt || elements[rt].HeatConduct == 0
 				        || (t == PT_FILT && (rt == PT_BRAY || rt == PT_BIZR || rt == PT_BIZRG))
 				        || (rt == PT_FILT && (t == PT_BRAY || t == PT_PHOT || t == PT_BIZR || t == PT_BIZRG))
 				        || (t == PT_ELEC && rt == PT_DEUT)
 				        || (t == PT_DEUT && rt == PT_ELEC)
-				        || (t == PT_HSWC && rt == PT_FILT && parts[i].tmp == 1)
-				        || (t == PT_FILT && rt == PT_HSWC && parts[ID(r)].tmp == 1))
+				        || (t == PT_HSWC && rt == PT_FILT && parts[i].tmp == 1))
 					continue;
 
-				surround_hconduct[j] = ID(r);
-				auto hc = HeatCapacityFast(elements, parts[ID(r)]);
-				c_heat += parts[ID(r)].temp*hc;
+				if ((rt == PT_HSWC && parts[rid].life != 10)
+				        || ((rt == PT_PIPE || rt == PT_PPIP) && (parts[rid].tmp & PFLAG_CAN_CONDUCT) == 0)
+				        || (t == PT_FILT && rt == PT_HSWC && parts[rid].tmp == 1))
+					continue;
+
+				surround_hconduct[j] = rid;
+				auto hc = HeatCapacityFast(elements, parts[rid]);
+				c_heat += parts[rid].temp*hc;
 				hc_total += hc;
 			}
 
