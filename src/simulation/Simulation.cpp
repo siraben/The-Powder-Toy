@@ -1120,7 +1120,14 @@ bool Simulation::IsWallBlocking(int x, int y, int type) const
 0 = No move/Bounce
 2 = Both particles occupy the same space.
  */
-int Simulation::EvalMove(int pt, int nx, int ny, unsigned *rr) const
+// Called several times per moving particle per frame from the movement paths;
+// forcing it into its same-TU callers removes measurable call overhead and
+// unlocks cross-function optimisation.  Other translation units keep normal
+// calls.
+#if defined(__GNUC__)
+__attribute__((always_inline))
+#endif
+int Simulation::eval_move(int pt, int nx, int ny, unsigned *rr) const
 {
 	unsigned r;
 	int result;
@@ -1206,7 +1213,10 @@ int Simulation::EvalMove(int pt, int nx, int ny, unsigned *rr) const
 	return result;
 }
 
-int Simulation::TryMove(int i, int x, int y, int nx, int ny)
+#if defined(__GNUC__)
+__attribute__((always_inline))
+#endif
+int Simulation::try_move(int i, int x, int y, int nx, int ny)
 {
 	unsigned r = 0, e;
 
