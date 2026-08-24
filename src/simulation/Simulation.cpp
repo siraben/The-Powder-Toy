@@ -39,6 +39,22 @@ namespace
 
 		void UpdateParticles(int start, int end) final override;
 	};
+
+	// Hot-path copies of SimulationData::IsHeatInsulator / HeatCapacityOf so
+	// they inline into TransitionPhase (default builds have no LTO).  Keep in
+	// sync with the originals in SimulationData.cpp.
+	inline bool HeatInsulatorFast(const std::array<Element, PT_NUM> &elements, const Particle &p)
+	{
+		return elements[p.type].HeatConduct == 0 || (p.type == PT_HSWC && p.life != 10) || ((p.type == PT_PIPE || p.type == PT_PPIP) && (p.tmp & PFLAG_CAN_CONDUCT) == 0);
+	}
+
+	inline float HeatCapacityFast(const std::array<Element, PT_NUM> &elements, const Particle &p)
+	{
+		if ((p.type == PT_PIPE || p.type == PT_PPIP) && p.ctype > 0 && p.ctype < PT_NUM && elements[p.ctype].Enabled)
+			return elements[p.type].HeatCapacity + elements[p.ctype].HeatCapacity;
+		else
+			return elements[p.type].HeatCapacity;
+	}
 }
 
 static float remainder_p(float x, float y)
@@ -2449,13 +2465,13 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 		}
 
 		// Heat transfer code
-		if (t && !sd.IsHeatInsulator(parts[i]) && rng.chance(int(elements[t].HeatConduct*gel_scale), 250))
+		if (t && !HeatInsulatorFast(elements, parts[i]) && rng.chance(int(elements[t].HeatConduct*gel_scale), 250))
 		{
 			// Heat transfer with air
 			if (aheat_enable && !(elements[t].Properties&PROP_NOAMBHEAT))
 			{
 				auto dtemp = hv[y/CELL][x/CELL] - parts[i].temp; // Temperature difference
-				auto hc = sd.HeatCapacityOf(parts[i]);
+				auto hc = HeatCapacityFast(elements, parts[i]);
 				auto alpha = std::min(0.04f, 0.4f * hc); // alpha / heat_capacity must be < 1
 
 				// Here we completely ignore that there are CELL^2 "air pixels" in a cell, and the heat capacity of air
@@ -2479,7 +2495,7 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 				auto rt = TYP(r);
 
 				// Check if we can conduct heat
-				if (!rt || sd.IsHeatInsulator(parts[ID(r)])
+				if (!rt || HeatInsulatorFast(elements, parts[ID(r)])
 				        || (t == PT_FILT && (rt == PT_BRAY || rt == PT_BIZR || rt == PT_BIZRG))
 				        || (rt == PT_FILT && (t == PT_BRAY || t == PT_PHOT || t == PT_BIZR || t == PT_BIZRG))
 				        || (t == PT_ELEC && rt == PT_DEUT)
@@ -2489,13 +2505,13 @@ bool SimulationImpl::TransitionPhase(int i, const Neighbourhood &neighbourhood)
 					continue;
 
 				surround_hconduct[j] = ID(r);
-				auto hc = sd.HeatCapacityOf(parts[ID(r)]);
+				auto hc = HeatCapacityFast(elements, parts[ID(r)]);
 				c_heat += parts[ID(r)].temp*hc;
 				hc_total += hc;
 			}
 
 			// Add the current particle
-			auto hc = sd.HeatCapacityOf(parts[i]);
+			auto hc = HeatCapacityFast(elements, parts[i]);
 			c_heat += parts[i].temp*hc;
 			hc_total += hc;
 
