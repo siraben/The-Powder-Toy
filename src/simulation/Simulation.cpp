@@ -1120,7 +1120,7 @@ bool Simulation::IsWallBlocking(int x, int y, int type) const
 0 = No move/Bounce
 2 = Both particles occupy the same space.
  */
-int Simulation::eval_move(int pt, int nx, int ny, unsigned *rr) const
+int Simulation::EvalMove(int pt, int nx, int ny, unsigned *rr) const
 {
 	unsigned r;
 	int result;
