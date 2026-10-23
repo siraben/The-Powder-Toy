@@ -12,7 +12,8 @@ endif
 
 target_options = [
 	'cpp_std=c++20',
-	'cpp_rtti=false',
+	# Darwin needs RTTI for std::exception catches across shared libraries.
+	'cpp_rtti=@0@'.format(host_machine.system() == 'darwin'),
 	'b_ndebug=true', # otherwise we get superfluous asserts in the stdlib, see also Assert.h
 ]
 
